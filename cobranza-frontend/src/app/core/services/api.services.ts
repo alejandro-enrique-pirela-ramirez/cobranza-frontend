@@ -8,7 +8,7 @@ import {
   EstadoFactura
 } from '../models/models';
 
-const BASE = 'http://localhost:8080/api';
+const BASE = 'https://sistemacobranzafanox.onrender.com/api';
 
 @Injectable({ providedIn: 'root' })
 export class ClienteService {
