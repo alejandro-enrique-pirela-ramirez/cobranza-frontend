@@ -1,0 +1,238 @@
+<div class="p-8 bg-slate-950 min-h-full">
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-3xl font-black text-white">Abonos</h1>
+      <p class="text-slate-400 text-sm mt-1">Registro de pagos parciales y totales</p>
+    </div>
+    <button
+      (click)="abrirModal()"
+      [disabled]="!facturaSel()"
+      class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-blue-600/20"
+    >
+      + Registrar Abono
+    </button>
+  </div>
+
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6">
+    <p class="text-slate-400 text-sm font-semibold mb-3">
+      Selecciona una factura para consultar o registrar abonos
+    </p>
+
+    <div class="relative w-full max-w-2xl mb-8">
+      <button
+        (click)="dropdownOpen.set(!dropdownOpen())"
+        class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-4 py-3 text-sm text-left flex justify-between items-center focus:outline-none focus:border-blue-500 transition"
+      >
+        <span class="truncate">
+          @if (facturaSel()) {
+            <span class="text-white font-mono font-bold">{{ facturaSel()!.codigo }}</span>
+            <span class="opacity-60 ml-2">— {{ facturaSel()!.cliente?.nombre }}</span>
+          } @else {
+            Buscar por código de factura o cliente...
+          }
+        </span>
+        <svg class="w-5 h-5 text-slate-500 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      @if (dropdownOpen()) {
+        <div class="fixed inset-0 z-10" (click)="dropdownOpen.set(false)"></div>
+        <div class="absolute z-20 w-full mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+          <div class="p-2 border-b border-slate-700 relative">
+            <input
+              type="text"
+              [ngModel]="busqueda()"
+              (ngModelChange)="busqueda.set($event)"
+              placeholder="Ej: F001-00001 o Juan Perez..."
+              class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 font-mono"
+              (click)="$event.stopPropagation()"
+              autofocus
+            />
+          </div>
+          <ul class="max-h-60 overflow-y-auto p-1 custom-scrollbar relative">
+            @for (f of facturasFiltradas(); track f.idFactura) {
+              <li>
+                <button
+                  (click)="seleccionarFactura(f)"
+                  class="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-blue-600 hover:text-white rounded-lg transition-colors flex justify-between items-center"
+                >
+                  <div>
+                    <p class="font-bold font-mono">{{ f.codigo }}</p>
+                    <p class="text-xs opacity-70 truncate">{{ f.cliente?.nombre }}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-xs font-semibold" [class.text-green-400]="f.saldo === 0" [class.text-red-400]="f.saldo > 0">
+                      Saldo: {{ f.moneda }} {{ f.saldo | number: '1.2-2' }}
+                    </p>
+                    <p class="text-[10px] opacity-50">{{ f.estado }}</p>
+                  </div>
+                </button>
+              </li>
+            } @empty {
+              <li class="px-3 py-4 text-center text-slate-500 text-sm">No se encontraron facturas</li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
+    @if (buscado()) {
+      @if (abonos().length === 0) {
+        <div class="mt-8 text-center py-10 bg-slate-800/20 rounded-xl border border-dashed border-slate-700">
+          <span class="text-4xl block mb-3">💸</span>
+          <p class="text-slate-400 text-base">
+            No hay abonos registrados para la factura
+            <span class="font-mono text-white">{{ facturaSel()?.codigo }}</span>
+          </p>
+        </div>
+      } @else {
+        <div class="mt-8">
+          <div class="flex justify-between items-end mb-4 px-2">
+            <p class="text-slate-500 text-xs font-bold uppercase tracking-wider">
+              Historial de Abonos — <span class="text-white font-mono">{{ facturaSel()?.codigo }}</span>
+            </p>
+            <div class="text-right bg-slate-950/50 px-4 py-2 rounded-lg border border-slate-800">
+              <p class="text-slate-400 text-xs">
+                Deuda Original: <span class="text-white font-mono ml-1">{{ facturaSel()?.moneda }} {{ facturaSel()?.total | number: '1.2-2' }}</span>
+              </p>
+              <p class="text-slate-400 text-xs mt-1">
+                Saldo Actual: <span class="text-red-400 font-bold font-mono ml-1">{{ facturaSel()?.moneda }} {{ facturaSel()?.saldo | number: '1.2-2' }}</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
+            <table class="w-full text-sm text-left whitespace-nowrap">
+              <thead class="bg-slate-800/80 text-xs text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-700">
+                <tr>
+                  <th class="px-6 py-4 w-[15%]">Fecha</th>
+                  <th class="px-6 py-4 w-[20%]">Método de Pago</th>
+                  <th class="px-6 py-4 w-[20%] text-right">Monto Abonado</th>
+                  <th class="px-6 py-4 w-[20%] text-right">Saldo Restante</th>
+                  <th class="px-6 py-4 w-[25%]">Observación</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                @for (a of abonos(); track a.idAbono) {
+                  <tr class="hover:bg-slate-800/40 transition-colors">
+                    <td class="px-6 py-4 text-slate-300 font-medium">{{ a.fechaAbono }}</td>
+                    <td class="px-6 py-4">
+                      <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold px-3 py-1.5 rounded-full">
+                        {{ a.metodoPago }}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 text-right font-black text-green-400 text-base font-mono">
+                      {{ facturaSel()?.moneda }} {{ a.monto | number: '1.2-2' }}
+                    </td>
+                    <td class="px-6 py-4 text-right text-slate-300 font-bold font-mono">
+                      {{ facturaSel()?.moneda }} {{ a.saldoRestante | number: '1.2-2' }}
+                    </td>
+                    <td class="px-6 py-4 text-slate-400 text-sm max-w-[200px] truncate" [title]="a.observacion ?? ''">
+                      {{ a.observacion || '—' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr class="border-t-2 border-slate-700 bg-slate-800/40">
+                  <td colspan="2" class="px-6 py-5 text-slate-400 text-sm font-bold text-right uppercase tracking-wider">
+                    Total abonado:
+                  </td>
+                  <td class="px-6 py-5 text-right font-black text-white text-lg font-mono">
+                    {{ facturaSel()?.moneda }} {{ totalAbonado() | number: '1.2-2' }}
+                  </td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+@if (showModal()) {
+  <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" (click)="closeModal()">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl" (click)="$event.stopPropagation()">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-white font-bold text-xl">Registrar Abono</h2>
+          <p class="text-slate-400 text-xs mt-1 font-mono">Factura: {{ facturaSel()?.codigo }}</p>
+        </div>
+        <button (click)="closeModal()" class="text-slate-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-800 text-lg transition-colors">
+          ✕
+        </button>
+      </div>
+
+      <div class="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 mb-5 flex justify-between items-center">
+        <span class="text-slate-300 text-sm">Saldo pendiente:</span>
+        <span class="text-2xl font-black text-blue-400 font-mono">
+          {{ facturaSel()?.moneda }} {{ facturaSel()?.saldo | number: '1.2-2' }}
+        </span>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Monto del Abono ({{ facturaSel()?.moneda }})</label>
+          <input [(ngModel)]="form.monto" type="number" min="0.01" [max]="facturaSel()?.saldo ?? 0" step="0.01" placeholder="0.00" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-lg font-bold text-green-400 focus:outline-none focus:border-blue-500 font-mono transition-colors" />
+          @if (form.monto > (facturaSel()?.saldo ?? 0)) {
+            <p class="text-red-400 text-xs mt-2 flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              El monto supera el saldo de la factura.
+            </p>
+          }
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Fecha de Abono</label>
+            <input [(ngModel)]="form.fechaAbono" type="date" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-300 focus:outline-none focus:border-blue-500 transition-colors" />
+          </div>
+          <div>
+            <label class="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Método de Pago</label>
+            <select [(ngModel)]="form.metodoPago" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-300 focus:outline-none focus:border-blue-500 transition-colors appearance-none">
+              <option value="">Seleccionar...</option>
+              <option value="EFECTIVO">💵 Efectivo</option>
+              <option value="TRANSFERENCIA">🏦 Transferencia</option>
+              <option value="YAPE">📱 Yape</option>
+              <option value="PLIN">📱 Plin</option>
+              <option value="TARJETA">💳 Tarjeta</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+            Observación <span class="text-slate-600 normal-case font-normal">(opcional)</span>
+          </label>
+          <textarea [(ngModel)]="form.observacion" placeholder="Número de operación, notas..." rows="2" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-300 focus:outline-none focus:border-blue-500 transition-colors resize-none"></textarea>
+        </div>
+      </div>
+
+      @if (errorMsg()) {
+        <div class="mt-5 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center gap-2">
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          {{ errorMsg() }}
+        </div>
+      }
+
+      <div class="flex gap-3 mt-8">
+        <button (click)="closeModal()" class="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 font-medium transition-all">
+          Cancelar
+        </button>
+        <button (click)="guardar()" [disabled]="saving() || form.monto > (facturaSel()?.saldo ?? 0) || !form.monto" class="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 text-white font-bold transition-all shadow-lg shadow-blue-600/20">
+          @if (saving()) {
+            <span class="flex items-center justify-center gap-2">
+              <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              Guardando...
+            </span>
+          } @else {
+            Confirmar Abono
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

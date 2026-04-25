@@ -1,0 +1,560 @@
+<div class="p-8 bg-slate-950 min-h-full">
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-3xl font-black text-white">Facturas</h1>
+      <p class="text-slate-400 text-base mt-1">Gestión de facturas de cobranza</p>
+    </div>
+    <button
+      (click)="openNueva()"
+      class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2.5 rounded-xl text-base transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
+    >
+      <span>+</span> Nueva Factura
+    </button>
+  </div>
+
+  <div class="flex flex-wrap gap-3 mb-6 items-center">
+    <div class="flex gap-2 flex-wrap">
+      @for (f of filtros; track f.val) {
+        <button
+          (click)="setFiltro(f.val)"
+          [class.ring-2]="filtroActual() === f.val"
+          [class.ring-blue-500]="filtroActual() === f.val"
+          [class.text-white]="filtroActual() === f.val"
+          [class.bg-slate-800]="filtroActual() !== f.val"
+          [class.bg-slate-700]="filtroActual() === f.val"
+          [class.text-slate-400]="filtroActual() !== f.val"
+          class="px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-transparent"
+        >
+          {{ f.label }}
+        </button>
+      }
+    </div>
+
+    <div class="h-6 w-px bg-slate-700 hidden sm:block"></div>
+
+    <div class="flex items-center gap-2 relative">
+      <div class="relative min-w-[260px]">
+        <button
+          (click)="dropdownFiltroOpen.set(!dropdownFiltroOpen())"
+          class="w-full bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 text-sm text-left flex justify-between items-center focus:outline-none focus:border-blue-500 transition"
+        >
+          <span class="truncate">{{
+            clienteFiltroSeleccionado()?.nombre || 'Todos los clientes'
+          }}</span>
+          <svg
+            class="w-4 h-4 text-slate-500 shrink-0 ml-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </button>
+
+        @if (dropdownFiltroOpen()) {
+          <div class="fixed inset-0 z-10" (click)="dropdownFiltroOpen.set(false)"></div>
+          <div
+            class="absolute z-20 w-full mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden"
+          >
+            <div class="p-2 border-b border-slate-700">
+              <input
+                type="text"
+                [ngModel]="busquedaFiltro()"
+                (ngModelChange)="busquedaFiltro.set($event)"
+                placeholder="Buscar por nombre, DNI o RUC..."
+                class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                (click)="$event.stopPropagation()"
+              />
+            </div>
+            <ul class="max-h-60 overflow-y-auto p-1 custom-scrollbar">
+              <li>
+                <button
+                  (click)="seleccionarClienteFiltro(''); dropdownFiltroOpen.set(false)"
+                  class="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-blue-600 hover:text-white rounded-lg transition-colors"
+                >
+                  Todos los clientes
+                </button>
+              </li>
+              @for (c of clientesFiltradosFiltro(); track c.idCliente) {
+                <li>
+                  <button
+                    (click)="seleccionarClienteFiltro(c.idCliente!); dropdownFiltroOpen.set(false)"
+                    class="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-blue-600 hover:text-white rounded-lg transition-colors"
+                  >
+                    <p class="font-medium truncate">{{ c.nombre }}</p>
+                    <p class="text-xs opacity-70 font-mono">{{ c.numeroDocumento }}</p>
+                  </button>
+                </li>
+              } @empty {
+                <li class="px-3 py-4 text-center text-slate-500 text-sm">
+                  No se encontraron clientes
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+
+      @if (clienteFiltro()) {
+        <button
+          (click)="limpiarCliente()"
+          title="Limpiar filtro"
+          class="text-slate-500 hover:text-white transition p-2 rounded-lg hover:bg-slate-800"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+    @defer (when !loading()) {
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1000px] table-fixed text-left">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-xs">
+              <th class="py-4 px-4 font-semibold w-[12%]">Código</th>
+              <th class="py-4 px-4 font-semibold w-[22%]">Cliente</th>
+              <th class="py-4 px-4 font-semibold w-[12%]">Emisión</th>
+              <th class="py-4 px-4 font-semibold w-[12%]">Vence</th>
+              <th class="py-4 px-4 font-semibold w-[12%] text-right">Total</th>
+              <th class="py-4 px-4 font-semibold w-[12%] text-right">Saldo</th>
+              <th class="py-4 px-4 font-semibold w-[10%] text-center">Estado</th>
+              <th class="py-4 px-4 font-semibold w-[8%] text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of facturasPagina(); track f.idFactura) {
+              <tr class="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
+                <td class="py-4 px-4 font-mono text-sm text-white font-semibold truncate">
+                  {{ f.codigo }}
+                </td>
+
+                <td class="py-4 px-4">
+                  @if (f.cliente) {
+                    <p class="truncate text-sm text-slate-300">{{ f.cliente.nombre }}</p>
+                    <p class="text-slate-500 text-xs font-mono mt-0.5">
+                      {{ f.cliente.numeroDocumento }}
+                    </p>
+                  } @else {
+                    <p class="text-slate-600 text-xs italic">Sin cliente asociado</p>
+                  }
+                </td>
+
+                <td class="py-4 px-4 text-slate-400 text-sm truncate">{{ f.fechaEmision }}</td>
+                <td class="py-4 px-4 text-slate-400 text-sm truncate">{{ f.fechaVencimiento }}</td>
+
+                <td class="py-4 px-4 text-right text-white font-semibold text-sm truncate">
+                  <span class="text-slate-500 text-xs mr-1">{{ f.moneda }}</span>
+                  {{ f.total | number: '1.2-2' }}
+                </td>
+
+                <td
+                  class="py-4 px-4 text-right font-bold text-sm truncate"
+                  [class.text-red-400]="f.saldo > 0"
+                  [class.text-green-400]="f.saldo === 0"
+                >
+                  <span class="text-slate-500 text-xs mr-1">{{ f.moneda }}</span>
+                  {{ f.saldo | number: '1.2-2' }}
+                </td>
+
+                <td class="py-4 px-4 text-center">
+                  <span
+                    class="px-3 py-1.5 rounded-full text-xs font-bold border"
+                    [class]="badge(f.estado!)"
+                  >
+                    {{ f.estado }}
+                  </span>
+                </td>
+
+                <td class="py-4 px-4 text-center">
+                  <div class="flex items-center justify-center gap-1">
+                    @if (f.estado === 'PENDIENTE' || f.estado === 'VENCIDA') {
+                      <button
+                        (click)="abrirCambiarEstado(f)"
+                        class="text-sm text-slate-400 hover:text-blue-400 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-blue-400/10 font-medium"
+                      >
+                        Estado
+                      </button>
+                    } @else if (f.estado !== 'ANULADA' && f.estado !== 'PAGADA') {
+                      <button
+                        (click)="abrirAnular(f)"
+                        class="text-sm text-slate-400 hover:text-red-400 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-400/10 font-medium"
+                      >
+                        Anular
+                      </button>
+                    } @else {
+                      <span class="text-slate-700 text-sm">—</span>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="text-center py-16">
+                  <span class="text-4xl block mb-3">📄</span>
+                  <p class="text-slate-500 text-base">No hay facturas para este filtro</p>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPaginas() > 1) {
+        <div class="flex items-center justify-between px-6 py-4 border-t border-slate-800">
+          <p class="text-slate-500 text-sm">
+            Mostrando
+            <span class="text-white font-semibold">{{ rangoInicio() }}–{{ rangoFin() }}</span>
+            de
+            <span class="text-white font-semibold">{{ facturas().length }}</span>
+            facturas
+          </p>
+          <div class="flex items-center gap-1">
+            <button
+              (click)="irPagina(paginaActual() - 1)"
+              [disabled]="paginaActual() === 1"
+              class="px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              ← Anterior
+            </button>
+            @for (p of paginas(); track p) {
+              <button
+                (click)="irPagina(p)"
+                [class.bg-blue-600]="p === paginaActual()"
+                [class.text-white]="p === paginaActual()"
+                [class.text-slate-400]="p !== paginaActual()"
+                [class.hover:bg-slate-800]="p !== paginaActual()"
+                class="w-8 h-8 rounded-lg text-sm font-semibold transition-all"
+              >
+                {{ p }}
+              </button>
+            }
+            <button
+              (click)="irPagina(paginaActual() + 1)"
+              [disabled]="paginaActual() === totalPaginas()"
+              class="px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              Siguiente →
+            </button>
+          </div>
+        </div>
+      }
+    } @placeholder {
+      <div class="p-6 space-y-3">
+        @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+          <div class="h-14 bg-slate-800 rounded-xl animate-pulse"></div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+@if (showNueva()) {
+  <div
+    class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+  >
+    <div
+      class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative"
+    >
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-white font-bold text-xl">Nueva Factura</h2>
+        <button
+          (click)="showNueva.set(false)"
+          class="text-slate-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-800 text-lg"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="label">Código de Factura</label>
+            <input [(ngModel)]="nf.codigo" placeholder="Ej: F001-00001" class="field" />
+          </div>
+
+          <div class="col-span-2 relative">
+            <label class="label">Cliente</label>
+            <button
+              type="button"
+              (click)="dropdownNuevaOpen.set(!dropdownNuevaOpen())"
+              class="field flex justify-between items-center cursor-pointer text-left"
+            >
+              <span [class.text-slate-500]="!nf.idCliente" class="truncate block w-full">
+                {{
+                  clienteNuevaSeleccionado
+                    ? clienteNuevaSeleccionado!.nombre +
+                      ' – ' +
+                      clienteNuevaSeleccionado!.numeroDocumento
+                    : 'Seleccionar cliente...'
+                }}
+              </span>
+              <svg
+                class="w-4 h-4 text-slate-500 shrink-0 ml-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+
+            @if (dropdownNuevaOpen()) {
+              <div class="fixed inset-0 z-10" (click)="dropdownNuevaOpen.set(false)"></div>
+              <div
+                class="absolute z-20 w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden"
+              >
+                <div class="p-2 border-b border-slate-700">
+                  <input
+                    type="text"
+                    [ngModel]="busquedaNueva()"
+                    (ngModelChange)="busquedaNueva.set($event)"
+                    placeholder="Buscar DNI, RUC o Nombre..."
+                    class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    (click)="$event.stopPropagation()"
+                  />
+                </div>
+                <ul class="max-h-48 overflow-y-auto p-1 custom-scrollbar">
+                  @for (c of clientesFiltradosNueva(); track c.idCliente) {
+                    <li>
+                      <button
+                        type="button"
+                        (click)="seleccionarClienteNueva(c)"
+                        class="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-blue-600 hover:text-white rounded-lg transition-colors"
+                      >
+                        <p class="font-medium truncate">{{ c.nombre }}</p>
+                        <p class="text-xs opacity-70 font-mono">{{ c.numeroDocumento }}</p>
+                      </button>
+                    </li>
+                  } @empty {
+                    <li class="px-3 py-4 text-center text-slate-500 text-sm">
+                      No se encontraron resultados
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+          </div>
+
+          <div>
+            <label class="label">Fecha de Emisión</label>
+            <input [(ngModel)]="nf.fechaEmision" type="date" class="field" />
+          </div>
+          <div>
+            <label class="label">Fecha de Vencimiento</label>
+            <input [(ngModel)]="nf.fechaVencimiento" type="date" class="field" />
+          </div>
+          <div>
+            <label class="label">Monto Base (sin IGV)</label>
+            <input
+              [(ngModel)]="nf.montoBase"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              class="field"
+            />
+          </div>
+          <div>
+            <label class="label">Moneda</label>
+            <select [(ngModel)]="nf.moneda" class="field bg-slate-800">
+              <option value="PEN">🇵🇪 PEN – Soles</option>
+              <option value="USD">🇺🇸 USD – Dólares</option>
+            </select>
+          </div>
+        </div>
+
+        @if (nf.montoBase > 0) {
+          <div
+            class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 grid grid-cols-3 gap-2 text-center"
+          >
+            <div>
+              <p class="text-slate-400 text-xs mb-1">Base</p>
+              <p class="text-white font-bold text-sm">
+                {{ nf.moneda }} {{ nf.montoBase | number: '1.2-2' }}
+              </p>
+            </div>
+            <div>
+              <p class="text-slate-400 text-xs mb-1">IGV 18%</p>
+              <p class="text-blue-400 font-bold text-sm">
+                {{ nf.moneda }} {{ nf.montoBase * 0.18 | number: '1.2-2' }}
+              </p>
+            </div>
+            <div>
+              <p class="text-slate-400 text-xs mb-1">Total</p>
+              <p class="text-green-400 font-black text-sm">
+                {{ nf.moneda }} {{ nf.montoBase * 1.18 | number: '1.2-2' }}
+              </p>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if (errorNueva()) {
+        <div
+          class="mt-4 px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm"
+        >
+          {{ errorNueva() }}
+        </div>
+      }
+
+      <div class="flex gap-3 mt-6">
+        <button
+          (click)="showNueva.set(false)"
+          class="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-sm transition-all"
+        >
+          Cancelar
+        </button>
+        <button
+          (click)="guardarFactura()"
+          [disabled]="saving()"
+          class="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-sm transition-all"
+        >
+          {{ saving() ? 'Registrando...' : 'Registrar Factura' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showEstado()) {
+  <div
+    class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+    (click)="showEstado.set(false)"
+  >
+    <div
+      class="bg-slate-900 border border-blue-900/40 rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-white font-bold text-lg">Cambiar Estado</h2>
+          <p class="text-slate-400 text-sm">{{ factSeleccionada()?.codigo }}</p>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <p class="text-slate-400 text-sm mb-2">Estado actual:</p>
+        <span
+          class="px-3 py-1.5 rounded-full text-xs font-bold border"
+          [class]="badge(factSeleccionada()?.estado ?? '')"
+        >
+          {{ factSeleccionada()?.estado }}
+        </span>
+      </div>
+
+      <div
+        class="mb-5 px-3 py-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-400 text-xs"
+      >
+        ⚠️ El estado <strong>ABONADA</strong> lo asigna automáticamente el sistema al registrar un
+        abono.
+      </div>
+
+      <label class="label">Nuevo Estado</label>
+      <select [(ngModel)]="nuevoEstado" class="field mb-6 bg-slate-800">
+        @for (op of estadosDisponibles; track op.val) {
+          <option [value]="op.val">{{ op.label }}</option>
+        }
+      </select>
+
+      <div class="flex gap-3">
+        <button
+          (click)="showEstado.set(false)"
+          class="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm transition-all"
+        >
+          Cancelar
+        </button>
+        <button
+          (click)="confirmarCambioEstado()"
+          [disabled]="saving() || nuevoEstado === factSeleccionada()?.estado"
+          class="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-sm transition-all"
+        >
+          {{ saving() ? 'Guardando...' : 'Confirmar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showAnular()) {
+  <div
+    class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+    (click)="showAnular.set(false)"
+  >
+    <div
+      class="bg-slate-900 border border-red-900/40 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-white font-bold text-lg">Anular Factura</h2>
+          <p class="text-slate-400 text-sm">{{ factSeleccionada()?.codigo }}</p>
+        </div>
+      </div>
+
+      <p class="text-slate-400 text-sm mb-4">Esta acción no se puede deshacer. Indica el motivo:</p>
+
+      <textarea
+        [(ngModel)]="motivoAnulacion"
+        placeholder="Motivo de anulación..."
+        rows="3"
+        class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500 resize-none placeholder-slate-600"
+      >
+      </textarea>
+
+      <div class="flex gap-3 mt-5">
+        <button
+          (click)="showAnular.set(false)"
+          class="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm transition-all"
+        >
+          Cancelar
+        </button>
+        <button
+          (click)="confirmarAnular()"
+          [disabled]="saving() || !motivoAnulacion.trim()"
+          class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold text-sm transition-all"
+        >
+          {{ saving() ? 'Anulando...' : 'Confirmar Anulación' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

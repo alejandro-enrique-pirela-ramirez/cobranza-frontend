@@ -1,0 +1,208 @@
+<div class="p-8 bg-slate-950 min-h-full">
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-2xl font-black text-white">Clientes</h1>
+      <p class="text-slate-400 text-sm mt-1">{{ clientes().length }} clientes registrados</p>
+    </div>
+    <button
+      (click)="openModal()"
+      class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-blue-600/20"
+    >
+      + Nuevo Cliente
+    </button>
+  </div>
+
+  <div class="mb-5">
+    <input
+      [(ngModel)]="buscar"
+      placeholder="Buscar por nombre o documento..."
+      class="w-full max-w-md bg-slate-900 border border-slate-800 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition placeholder-slate-600"
+    />
+  </div>
+
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+    @defer (when !loading()) {
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-800">
+            <th
+              class="text-left text-slate-500 text-xs font-semibold uppercase tracking-wider px-6 py-4"
+            >
+              Tipo
+            </th>
+            <th
+              class="text-left text-slate-500 text-xs font-semibold uppercase tracking-wider px-6 py-4"
+            >
+              Documento
+            </th>
+            <th
+              class="text-left text-slate-500 text-xs font-semibold uppercase tracking-wider px-6 py-4"
+            >
+              Nombre / Razón Social
+            </th>
+            <th
+              class="text-left text-slate-500 text-xs font-semibold uppercase tracking-wider px-6 py-4"
+            >
+              Correo
+            </th>
+            <th
+              class="text-left text-slate-500 text-xs font-semibold uppercase tracking-wider px-6 py-4"
+            >
+              Teléfono
+            </th>
+            <th
+              class="text-left text-slate-500 text-xs font-semibold uppercase tracking-wider px-6 py-4"
+            >
+              Dirección
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of filtrados(); track c.idCliente) {
+            <tr class="border-b border-slate-800/40 hover:bg-slate-800/30 transition-colors">
+              <td class="px-6 py-4">
+                <span
+                  class="text-xs font-bold px-2 py-1 rounded-lg"
+                  [class.bg-blue-500\/20]="c.tipoDocumento === 'RUC'"
+                  [class.text-blue-400]="c.tipoDocumento === 'RUC'"
+                  [class.bg-green-500\/20]="c.tipoDocumento === 'DNI'"
+                  [class.text-green-400]="c.tipoDocumento === 'DNI'"
+                  [class.bg-slate-500\/20]="c.tipoDocumento !== 'RUC' && c.tipoDocumento !== 'DNI'"
+                  [class.text-slate-400]="c.tipoDocumento !== 'RUC' && c.tipoDocumento !== 'DNI'"
+                >
+                  {{ c.tipoDocumento }}
+                </span>
+              </td>
+
+              <td class="px-6 py-4 font-mono text-slate-300 text-xs">{{ c.numeroDocumento }}</td>
+              <td class="px-6 py-4 text-white font-medium">{{ c.nombre }}</td>
+              <td class="px-6 py-4 text-slate-400 text-xs">{{ c.correo || '—' }}</td>
+              <td class="px-6 py-4 text-slate-400 text-xs">{{ c.telefono || '—' }}</td>
+              <td class="px-6 py-4 text-slate-400 text-xs max-w-[200px] truncate">
+                {{ c.direccion || '—' }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="text-center text-slate-500 py-16">
+                <span class="text-3xl block mb-3">👤</span>
+                No hay clientes registrados
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @placeholder {
+      <div class="p-6 space-y-3">
+        @for (i of [1, 2, 3, 4, 5]; track i) {
+          <div class="h-12 bg-slate-800 rounded-xl animate-pulse"></div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+@if (showModal()) {
+  <div
+    class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    (click)="closeModal()"
+  >
+    <div
+      class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-white font-bold text-lg">Nuevo Cliente</h2>
+        <button
+          (click)="closeModal()"
+          class="text-slate-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-800"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="flex gap-1 bg-slate-800 p-1 rounded-xl mb-5">
+        @for (t of tabs; track t.val) {
+          <button
+            (click)="tipoReg = t.val"
+            [class.bg-blue-600]="tipoReg === t.val"
+            [class.text-white]="tipoReg === t.val"
+            [class.text-slate-400]="tipoReg !== t.val"
+            class="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+          >
+            {{ t.label }}
+          </button>
+        }
+      </div>
+
+      <div class="space-y-3">
+        @if (tipoReg === 'RUC') {
+          <input
+            [(ngModel)]="form.numeroDocumento"
+            placeholder="RUC (11 dígitos)"
+            maxlength="11"
+            class="field"
+          />
+        }
+
+        @if (tipoReg === 'DNI') {
+          <input
+            [(ngModel)]="form.numeroDocumento"
+            placeholder="DNI (8 dígitos)"
+            maxlength="8"
+            class="field"
+          />
+        }
+
+        @if (tipoReg === 'MANUAL') {
+          <select [(ngModel)]="form.tipoDocumento" class="field">
+            <option value="">Tipo de documento</option>
+            <option value="DNI">DNI</option>
+            <option value="RUC">RUC</option>
+            <option value="CE">Carnet de Extranjería</option>
+            <option value="PASAPORTE">Pasaporte</option>
+          </select>
+          <input
+            [(ngModel)]="form.numeroDocumento"
+            placeholder="Número de documento"
+            class="field"
+          />
+          <input [(ngModel)]="form.nombre" placeholder="Nombre / Razón Social" class="field" />
+          <input [(ngModel)]="form.direccion" placeholder="Dirección" class="field" />
+        }
+
+        <input
+          [(ngModel)]="form.correo"
+          type="email"
+          placeholder="Correo electrónico"
+          class="field"
+        />
+        <input [(ngModel)]="form.telefono" placeholder="Teléfono" class="field" />
+      </div>
+
+      @if (errorMsg()) {
+        <div
+          class="mt-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm"
+        >
+          {{ errorMsg() }}
+        </div>
+      }
+
+      <div class="flex gap-3 mt-6">
+        <button
+          (click)="closeModal()"
+          class="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-sm transition-all"
+        >
+          Cancelar
+        </button>
+        <button
+          (click)="guardar()"
+          [disabled]="saving()"
+          class="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-sm transition-all"
+        >
+          {{ saving() ? 'Guardando...' : 'Guardar Cliente' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
