@@ -12,7 +12,7 @@ const BASE = 'https://sistemacobranzafanox.onrender.com/api';
 
 @Injectable({ providedIn: 'root' })
 export class ClienteService {
-  private http = inject(HttpClient);
+  private http = inject(HttpClient);  
 
   listarTodos()                                         { return this.http.get<ClienteResponse[]>(`${BASE}/clientes`); }
   buscarPorId(id: number)                               { return this.http.get<ClienteResponse>(`${BASE}/clientes/${id}`); }
